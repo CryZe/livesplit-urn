@@ -7,7 +7,7 @@ typedef struct _UrnPb {
 } UrnPb;
 extern UrnComponentOps urn_pb_operations;
 
-#define PERSONAL_BEST "Personal best"
+#define PERSONAL_BEST "Personal Best"
 
 UrnComponent *urn_component_pb_new() {
     UrnPb *self;
@@ -45,18 +45,27 @@ static GtkWidget *pb_widget(UrnComponent *self) {
     return ((UrnPb *)self)->container;
 }
 
+static void pb_draw(UrnComponent *self_, TimerRef timer) {
+    UrnPb *self = (UrnPb *)self_;
+    char str[256];
+    remove_class(self->personal_best, "time");
+    RunRef run = Timer_get_run(timer);
+    SegmentRef segment = Run_segment(run, Run_len(run) - 1);
+    TimeRef time = Segment_personal_best_split_time(segment);
+    TimeSpanRef real_time = Time_real_time(time);
+    if (real_time == NULL) {
+        gtk_label_set_text(GTK_LABEL(self->personal_best), "-");
+    } else {
+        double total_seconds = TimeSpan_total_seconds(real_time);
+        urn_time_string(str, total_seconds * 1000000);
+        gtk_label_set_text(GTK_LABEL(self->personal_best), str);
+    }
+}
+
 static void pb_show_game(UrnComponent *self_,
         urn_game *game, urn_timer *timer) {
     UrnPb *self = (UrnPb *)self_;
-    char str[256];
-    if (game->split_count && game->split_times[game->split_count - 1]) {
-        if (game->split_times[game->split_count - 1]) {
-            urn_time_string(
-                str, game->split_times[game->split_count - 1]);
-            gtk_label_set_text(GTK_LABEL(self->personal_best), str);
-        }
-    }
-
+    pb_draw(self_, timer->timer);
 }
 
 static void pb_clear_game(UrnComponent *self_) {
@@ -64,33 +73,10 @@ static void pb_clear_game(UrnComponent *self_) {
     gtk_label_set_text(GTK_LABEL(self->personal_best), "");
 }
 
-static void pb_draw(UrnComponent *self_, urn_game *game,
-        urn_timer *timer) {
-    UrnPb *self = (UrnPb *)self_;
-    char str[256];
-    remove_class(self->personal_best, "time");
-    gtk_label_set_text(GTK_LABEL(self->personal_best), "-");
-    if (timer->curr_split == game->split_count
-        && timer->split_times[game->split_count - 1]
-        && (!game->split_times[game->split_count - 1]
-            || (timer->split_times[game->split_count - 1]
-                < game->split_times[game->split_count - 1]))) {
-        add_class(self->personal_best, "time");
-        urn_time_string(
-            str, timer->split_times[game->split_count - 1]);
-        gtk_label_set_text(GTK_LABEL(self->personal_best), str);
-    } else if (game->split_times[game->split_count - 1]) {
-        add_class(self->personal_best, "time");
-        urn_time_string(
-            str, game->split_times[game->split_count - 1]);
-        gtk_label_set_text(GTK_LABEL(self->personal_best), str);
-    }
-}
-
 UrnComponentOps urn_pb_operations = {
     .delete = pb_delete,
     .widget = pb_widget,
     .show_game = pb_show_game,
     .clear_game = pb_clear_game,
-    .draw = pb_draw
+    .draw = pb_show_game
 };

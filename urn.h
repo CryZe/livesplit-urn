@@ -1,6 +1,8 @@
 #ifndef __urn_h__
 #define __urn_h__
 
+#include "livesplit_core.h"
+
 #define URN_INFO_BEHIND_TIME   (1)
 #define URN_INFO_LOSING_TIME   (2)
 #define URN_INFO_BEST_SPLIT    (4)
@@ -22,6 +24,7 @@ struct urn_game {
     long long *segment_times;
     long long *best_splits;
     long long *best_segments;
+    Timer timer;
 };
 typedef struct urn_game urn_game;
 
@@ -43,6 +46,7 @@ struct urn_timer {
     long long *best_segments;
     const urn_game *game;
   int *attempt_count;
+  Timer timer;
 };
 typedef struct urn_timer urn_timer;
 

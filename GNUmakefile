@@ -8,6 +8,8 @@ LIBS        = gtk+-3.0 x11 jansson
 CFLAGS      += `pkg-config --cflags $(LIBS)`
 LDLIBS      += `pkg-config --libs $(LIBS)`
 
+LDLIBS	    += -L `pwd` -llivesplit_core -ldl -lutil -ldl -lrt -lpthread -lgcc_s -lc -lm -lrt -lutil
+
 BIN_DIR     = /usr/local/bin
 APP         = urn.desktop
 APP_DIR     = /usr/share/applications
@@ -15,9 +17,23 @@ ICON        = urn
 ICON_DIR    = /usr/share/icons/hicolor
 SCHEMAS_DIR = /usr/share/glib-2.0/schemas
 
-$(BIN): $(OBJS)
+$(BIN): liblivesplit_core.a $(OBJS)
 
-$(OBJS): urn-gtk.h
+$(OBJS): urn-gtk.h livesplit_core.h
+
+livesplit-core/capi/bindings/livesplit_core.h:
+	(cd livesplit-core/capi/bind_gen && cargo run)
+
+livesplit_core.h: livesplit-core/capi/bindings/livesplit_core.h
+	cp livesplit-core/capi/bindings/livesplit_core.h livesplit_core.h
+
+-include livesplit-core/target/release/liblivesplit_core_capi.d
+
+livesplit-core/target/release/liblivesplit_core_capi.a:
+	(cd livesplit-core && cargo build --release -p livesplit-core-capi)
+
+liblivesplit_core.a: livesplit-core/target/release/liblivesplit_core_capi.a livesplit-core/capi/bindings/livesplit_core.h
+	cp livesplit-core/target/release/liblivesplit_core_capi.a liblivesplit_core.a
 
 urn-gtk.h: urn-gtk.css
 	xxd --include urn-gtk.css > urn-gtk.h || (rm urn-gtk.h; false)
@@ -47,5 +63,12 @@ remove-schema:
 	rm $(SCHEMAS_DIR)/urn-gtk.gschema.xml
 	glib-compile-schemas $(SCHEMAS_DIR)
 
-clean:
+rustclean:
+	(cd livesplit-core && cargo clean)
+	rm liblivesplit_core.a
+	rm livesplit_core.h
+
+cclean:
 	rm -f $(OBJS) $(BIN) urn-gtk.h
+
+clean: cclean rustclean

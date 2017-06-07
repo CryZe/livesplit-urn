@@ -5,6 +5,7 @@ typedef struct _UrnTimer {
     GtkWidget *time;
     GtkWidget *time_seconds;
     GtkWidget *time_millis;
+    TimerComponent timer_component;
 } UrnTimer;
 extern UrnComponentOps urn_timer_operations;
 
@@ -15,6 +16,8 @@ UrnComponent *urn_component_timer_new() {
     self = malloc(sizeof(UrnTimer));
     if (!self) return NULL;
     self->base.ops = &urn_timer_operations;
+
+    self->timer_component = TimerComponent_new();
 
     self->time = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     add_class(self->time, "timer");
@@ -48,8 +51,10 @@ UrnComponent *urn_component_timer_new() {
 }
 
 // Avoid collision with timer_delete of time.h
-static void urn_timer_delete(UrnComponent *self) {
-    free(self);
+static void urn_timer_delete(UrnComponent *self_) {
+    UrnTimer *self = (UrnTimer *)self_;
+    TimerComponent_drop(self->timer_component);
+    free(self_);
 }
 
 static GtkWidget *timer_widget(UrnComponent *self) {
@@ -69,6 +74,8 @@ static void timer_draw(UrnComponent *self_, urn_game *game, urn_timer *timer) {
     UrnTimer *self = (UrnTimer *)self_;
     char str[256], millis[256];
     int curr;
+
+    TimerComponentState state = TimerComponent_state(self->timer_component, timer->timer);
 
     curr = timer->curr_split;
     if (curr == game->split_count) {
@@ -103,8 +110,10 @@ static void timer_draw(UrnComponent *self_, urn_game *game, urn_timer *timer) {
     }
     urn_time_millis_string(str, &millis[1], timer->time);
     millis[0] = '.';
-    gtk_label_set_text(GTK_LABEL(self->time_seconds), str);
-    gtk_label_set_text(GTK_LABEL(self->time_millis), millis);
+    gtk_label_set_text(GTK_LABEL(self->time_seconds), TimerComponentState_time(state));
+    gtk_label_set_text(GTK_LABEL(self->time_millis), TimerComponentState_fraction(state));
+
+    TimerComponentState_drop(state);
 }
 
 UrnComponentOps urn_timer_operations = {

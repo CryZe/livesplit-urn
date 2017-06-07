@@ -5,6 +5,7 @@ typedef struct _UrnPrevSegment {
     GtkWidget *container;
     GtkWidget *previous_segment_label;
     GtkWidget *previous_segment;
+    PreviousSegmentComponent previous_segment_component;
 } UrnPrevSegment;
 extern UrnComponentOps urn_prev_segment_operations;
 
@@ -17,6 +18,8 @@ UrnComponent *urn_component_prev_segment_new() {
     self = malloc(sizeof(UrnPrevSegment));
     if (!self) return NULL;
     self->base.ops = &urn_prev_segment_operations;
+
+    self->previous_segment_component = PreviousSegmentComponent_new();
 
     self->container = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     add_class(self->container, "footer");
@@ -40,8 +43,10 @@ UrnComponent *urn_component_prev_segment_new() {
     return (UrnComponent *)self;
 }
 
-static void prev_segment_delete(UrnComponent *self) {
-    free(self);
+static void prev_segment_delete(UrnComponent *self_) {
+    UrnPrevSegment *self = (UrnPrevSegment *)self_;
+    PreviousSegmentComponent_drop(self->previous_segment_component);
+    free(self_);
 }
 
 static GtkWidget *prev_segment_widget(UrnComponent *self) {
@@ -107,7 +112,13 @@ static void prev_segment_draw(UrnComponent *self_, urn_game *game,
             }
         }
     }
-    gtk_label_set_text(GTK_LABEL(self->previous_segment_label), label);
+
+    PreviousSegmentComponentState state = PreviousSegmentComponent_state(self->previous_segment_component, timer->timer);
+
+    gtk_label_set_text(GTK_LABEL(self->previous_segment_label), PreviousSegmentComponentState_text(state));
+    gtk_label_set_text(GTK_LABEL(self->previous_segment), PreviousSegmentComponentState_time(state));
+
+    PreviousSegmentComponentState_drop(state);
 }
 
 UrnComponentOps urn_prev_segment_operations = {

@@ -114,6 +114,7 @@ void urn_delta_string(char *string, long long time) {
 
 void urn_game_release(urn_game *game) {
     int i;
+    Timer_drop(game->timer);
     if (game->path) {
         free(game->path);
     }
@@ -161,6 +162,19 @@ int urn_game_create(urn_game **game_ptr, const char *path) {
         error = 1;
         goto game_create_done;
     }
+
+    FILE *fileptr;
+    char *buffer;
+    long filelen;
+    fileptr = fopen(path, "rb");  // Open the file in binary mode
+    fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
+    filelen = ftell(fileptr);             // Get the current byte offset in the file
+    rewind(fileptr);                      // Jump back to the beginning of the file
+    buffer = (char *)malloc(filelen*sizeof(char)); // Enough memory for file
+    fread(buffer, filelen, 1, fileptr); // Read in the entire file
+    fclose(fileptr); // Close the file
+    game->timer = Timer_new(Run_parse(buffer, filelen));
+
     // copy path to file
     game->path = strdup(path);
     if (!game->path) {
@@ -317,6 +331,8 @@ int urn_game_create(urn_game **game_ptr, const char *path) {
 
 void urn_game_update_splits(urn_game *game,
                             const urn_timer *timer) {
+    Timer_drop(game->timer);
+    game->timer = Timer_new(Run_clone(Timer_get_run(timer->timer)));
     if (timer->curr_split) {
         int size;
         if (timer->split_times[game->split_count - 1]
@@ -334,6 +350,8 @@ void urn_game_update_splits(urn_game *game,
 
 void urn_game_update_bests(urn_game *game,
                            const urn_timer *timer) {
+    Timer_drop(game->timer);
+    game->timer = Timer_new(Run_clone(Timer_get_run(timer->timer)));
     if (timer->curr_split) {
         int size;
         size = timer->curr_split * sizeof(long long);
@@ -398,6 +416,7 @@ int urn_game_save(const urn_game *game) {
 }
 
 void urn_timer_release(urn_timer *timer) {
+    Timer_drop(timer->timer);
     if (timer->split_times) {
         free(timer->split_times);
     }
@@ -459,6 +478,7 @@ int urn_timer_create(urn_timer **timer_ptr, urn_game *game) {
         error = 1;
         goto timer_create_done;
     }
+    timer->timer = Timer_new(Run_clone(Timer_get_run(game->timer)));
     timer->game = game;
     timer->attempt_count = &game->attempt_count;
     // alloc splits
@@ -569,6 +589,7 @@ void urn_timer_step(urn_timer *timer, long long now) {
 }
 
 int urn_timer_start(urn_timer *timer) {
+    Timer_split(timer->timer);
     if (timer->curr_split < timer->game->split_count) {
         if (!timer->start_time) {
             timer->start_time = timer->now + timer->game->start_delay;
@@ -581,6 +602,7 @@ int urn_timer_start(urn_timer *timer) {
 }
 
 int urn_timer_split(urn_timer *timer) {
+    Timer_split(timer->timer);
     if (timer->running && timer->time > 0) {
         if (timer->curr_split < timer->game->split_count) {
             int i;
@@ -624,6 +646,7 @@ int urn_timer_split(urn_timer *timer) {
 }
 
 int urn_timer_skip(urn_timer *timer) {
+    Timer_skip_split(timer->timer);
     if (timer->running && timer->time > 0) {
         if (timer->curr_split < timer->game->split_count) {
             timer->split_times[timer->curr_split] = 0;
@@ -638,6 +661,7 @@ int urn_timer_skip(urn_timer *timer) {
 }
 
 int urn_timer_unsplit(urn_timer *timer) {
+    Timer_undo_split(timer->timer);
     if (timer->curr_split) {
         int i;
         int curr = --timer->curr_split;
@@ -657,10 +681,12 @@ int urn_timer_unsplit(urn_timer *timer) {
 }
 
 void urn_timer_stop(urn_timer *timer) {
+    Timer_pause(timer->timer);
     timer->running = 0;
 }
 
 int urn_timer_reset(urn_timer *timer) {
+    Timer_reset(timer->timer, 1);
     if (!timer->running) {
         if (timer->started && timer->time <= 0) {
             return urn_timer_cancel(timer);
@@ -672,6 +698,7 @@ int urn_timer_reset(urn_timer *timer) {
 }
 
 int urn_timer_cancel(urn_timer *timer) {
+    Timer_reset(timer->timer, 0);
     if (!timer->running) {
         if (timer->started) {
             if (*timer->attempt_count <= 0) {

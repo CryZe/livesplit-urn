@@ -1,3 +1,4 @@
 urn-gtk
 urn-gtk.h
 *.o
+liblivesplit_core.a

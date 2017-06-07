@@ -7,6 +7,7 @@
 #include <gtk/gtk.h>
 
 #include "../urn.h"
+#include "../livesplit_core.h"
 
 typedef struct _UrnComponent UrnComponent;
 typedef struct _UrnComponentOps UrnComponentOps;

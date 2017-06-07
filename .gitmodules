@@ -1,3 +1,6 @@
 [submodule "themes"]
 	path = themes
 	url = https://github.com/3snowp7im/urn-themes
+[submodule "livesplit-core"]
+	path = livesplit-core
+	url = https://github.com/CryZe/livesplit-core

@@ -5,6 +5,7 @@ typedef struct _UrnTitle {
     GtkWidget *header;
     GtkWidget *title;
     GtkWidget *attempt_count;
+    TitleComponent title_component;
 } UrnTitle;
 extern UrnComponentOps urn_title_operations; // defined at the end of the file
 
@@ -14,6 +15,8 @@ UrnComponent *urn_component_title_new() {
     self = malloc(sizeof(UrnTitle));
     if (!self) return NULL;
     self->base.ops = &urn_title_operations;
+
+    self->title_component = TitleComponent_new();
 
     self->header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     add_class(self->header, "header");
@@ -36,8 +39,10 @@ UrnComponent *urn_component_title_new() {
     return (UrnComponent *)self;
 }
 
-static void title_delete(UrnComponent *self) {
-    free(self);
+static void title_delete(UrnComponent *self_) {
+    UrnTitle *self = (UrnTitle *)self_;
+    TitleComponent_drop(self->title_component);
+    free(self_);
 }
 
 static GtkWidget *title_widget(UrnComponent *self) {
@@ -61,18 +66,26 @@ static void title_resize(UrnComponent *self_, int win_width, int win_height) {
 
 static void title_show_game(UrnComponent *self_, urn_game *game,
         urn_timer *timer) {
-    char str[64];
     UrnTitle *self = (UrnTitle *)self_;
-    gtk_label_set_text(GTK_LABEL(self->title), game->title);
-    sprintf(str, "#%d", game->attempt_count);
+    TitleComponentState state = TitleComponent_state(self->title_component, timer->timer);
+
+    char str[64];
+    gtk_label_set_text(GTK_LABEL(self->title), TitleComponentState_category(state));
+    sprintf(str, "#%d", TitleComponentState_attempts(state));
     gtk_label_set_text(GTK_LABEL(self->attempt_count), str);
+
+    TitleComponentState_drop(state);
 }
 
 static void title_draw(UrnComponent *self_, urn_game *game, urn_timer *timer) {
-    char str[64];
     UrnTitle *self = (UrnTitle *)self_;
-    sprintf(str, "#%d", game->attempt_count);
+    TitleComponentState state = TitleComponent_state(self->title_component, timer->timer);
+
+    char str[64];
+    sprintf(str, "#%d", TitleComponentState_attempts(state));
     gtk_label_set_text(GTK_LABEL(self->attempt_count), str);
+
+    TitleComponentState_drop(state);
 }
 
 UrnComponentOps urn_title_operations = {
